@@ -6,7 +6,7 @@ namespace WebApplication1.Models
     public class ApplicationUser : IdentityUser
     {
         [MaxLength(555)]
-        public string name { get; set; }    
+        public string name { get; set; }
 
     }
 }
