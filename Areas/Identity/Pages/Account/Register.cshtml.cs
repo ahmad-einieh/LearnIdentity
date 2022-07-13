@@ -78,7 +78,7 @@ namespace WebApplication1.Areas.Identity.Pages.Account
             /// </summary>
             [Required]
             [StringLength(555, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
-                       [Display(Name = "Name")]
+            [Display(Name = "Name")]
             public string name { get; set; }
 
 

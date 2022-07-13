@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
 using WebApplication1.Models;
 using WebApplication1.ViewModel;
 
@@ -14,11 +15,16 @@ namespace WebApplication1.Controllers
 
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IUserStore<ApplicationUser> _userStore;
 
-        public UsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+
+        public UsersController(UserManager<ApplicationUser> userManager, 
+            RoleManager<IdentityRole> roleManager,
+            IUserStore<ApplicationUser> userStore)
         {
             _userManager = userManager;
             _roleManager = roleManager;
+            _userStore = userStore;
         }
 
         public async Task<IActionResult> Index()
@@ -67,6 +73,79 @@ namespace WebApplication1.Controllers
                 if(!userRole.Any(r => r == role.RoleName) && role.IsSelecte) await _userManager.AddToRoleAsync(user, role.RoleName);
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        public async Task<IActionResult> Add() {
+
+            var roles = await _roleManager.Roles.Select(r=> new RoleViewModel { RoleId = r.Id,RoleName = r.Name}).ToListAsync();
+            var viewModel = new AddUserViewModel
+            {
+
+               roles = roles,
+            };
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Add(AddUserViewModel model)
+        {
+            if(!ModelState.IsValid) return View(model);
+            if (!model.roles.Any(r => r.IsSelecte)) {
+                ModelState.AddModelError("Roles", "please select at least one role");
+                return View(model); 
+            }
+            if (await _userManager.FindByEmailAsync(model.Email) != null) {
+                ModelState.AddModelError("Email", "email already exist");
+                return View(model);
+            
+            }
+            if (await _userManager.FindByNameAsync(model.UserName) != null)
+            {
+                ModelState.AddModelError("UserName", "username already exist");
+                return View(model);
+
+            }
+            var user = CreateUser();
+            user.name = model.name;
+            await _userStore.SetUserNameAsync(user, new MailAddress(model.Email).User, CancellationToken.None);
+            await GetEmailStore().SetEmailAsync(user, model.Email, CancellationToken.None);
+            var result = await _userManager.CreateAsync(user, model.Password);
+            if (!result.Succeeded) {
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("Roles", error.Description);
+                    
+                }
+                return View(model);
+            }
+            await _userManager.AddToRolesAsync(user,model.roles.Where(r=>r.IsSelecte).Select(r=>r.RoleName));
+            return RedirectToAction(nameof(Index));
+        }
+
+
+        private ApplicationUser CreateUser()
+        {
+            try
+            {
+                return Activator.CreateInstance<ApplicationUser>();
+            }
+            catch
+            {
+                throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                    $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor, or alternatively " +
+                    $"override the register page in /Areas/Identity/Pages/Account/Register.cshtml");
+            }
+        }
+
+        private IUserEmailStore<ApplicationUser> GetEmailStore()
+        {
+            if (!_userManager.SupportsUserEmail)
+            {
+                throw new NotSupportedException("The default UI requires a user store with email support.");
+            }
+            return (IUserEmailStore<ApplicationUser>)_userStore;
         }
 
     }
