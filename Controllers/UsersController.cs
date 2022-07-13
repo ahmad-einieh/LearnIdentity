@@ -80,7 +80,6 @@ namespace WebApplication1.Controllers
             var roles = await _roleManager.Roles.Select(r=> new RoleViewModel { RoleId = r.Id,RoleName = r.Name}).ToListAsync();
             var viewModel = new AddUserViewModel
             {
-
                roles = roles,
             };
             return View(viewModel);
@@ -90,6 +89,8 @@ namespace WebApplication1.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(AddUserViewModel model)
         {
+            //Console.Write("here => "+ModelState.Values.ToString());
+            Console.Write("here => " + ModelState.IsValid);
             if(!ModelState.IsValid) return View(model);
             if (!model.roles.Any(r => r.IsSelecte)) {
                 ModelState.AddModelError("Roles", "please select at least one role");
@@ -100,11 +101,10 @@ namespace WebApplication1.Controllers
                 return View(model);
             
             }
-            if (await _userManager.FindByNameAsync(model.UserName) != null)
+            if (await _userManager.FindByNameAsync(new MailAddress(model.Email).User) != null)
             {
                 ModelState.AddModelError("UserName", "username already exist");
                 return View(model);
-
             }
             var user = CreateUser();
             user.name = model.name;
@@ -116,10 +116,10 @@ namespace WebApplication1.Controllers
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError("Roles", error.Description);
-                    
                 }
                 return View(model);
             }
+
             await _userManager.AddToRolesAsync(user,model.roles.Where(r=>r.IsSelecte).Select(r=>r.RoleName));
             return RedirectToAction(nameof(Index));
         }
@@ -147,6 +147,54 @@ namespace WebApplication1.Controllers
             }
             return (IUserEmailStore<ApplicationUser>)_userStore;
         }
+
+
+        public async Task<IActionResult> Edit(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return NotFound();
+            var roles = await _roleManager.Roles.ToListAsync();
+            var viewModel = new ProfileFormViewModel
+            {
+                Id = userId,
+                name = user.name,
+                Email = user.Email,
+                //UserName = user.UserName,
+            };
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(ProfileFormViewModel model)
+        {
+            if(!ModelState.IsValid) return View(model); 
+            var user = await _userManager.FindByIdAsync(model.Id);
+            if (user == null) return NotFound();
+           
+            var userWithSameEmail = await _userManager.FindByEmailAsync(user.Email);
+            if (userWithSameEmail != null && userWithSameEmail.Id !=model.Id)
+            {
+                ModelState.AddModelError("Email", "this email already used");
+                return View(model);
+            }
+
+            var userWithSameUserName = await _userManager.FindByNameAsync(user.UserName);
+            if (userWithSameUserName != null && userWithSameUserName.Id != model.Id)
+            {
+                ModelState.AddModelError("UserNmae", "this UserName already used");
+                return View(model);
+            }
+
+            user.name = model.name;
+            user.Email = model.Email;
+            user.UserName = new MailAddress(model.Email).User;
+            await _userManager.UpdateAsync(user);
+
+            return RedirectToAction(nameof(Index));
+        }
+
+
 
     }
 }
