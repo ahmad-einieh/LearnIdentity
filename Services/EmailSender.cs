@@ -8,8 +8,8 @@ namespace WebApplication1.Services
     {
         public async Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            var myEmail = ""; // enter your email here
-            var myPassword = ""; // enter your password here
+            var myEmail = "a2000-syria@hotmail.coms"; // enter your email here
+            var myPassword = "linux246"; // enter your password here
 
             var message = new MailMessage();
             message.From =  new MailAddress(myEmail);

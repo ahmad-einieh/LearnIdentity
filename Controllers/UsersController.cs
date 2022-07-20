@@ -107,6 +107,7 @@ namespace WebApplication1.Controllers
                 return View(model);
             }
             var user = CreateUser();
+            
             user.name = model.name;
             await _userStore.SetUserNameAsync(user, new MailAddress(model.Email).User, CancellationToken.None);
             await GetEmailStore().SetEmailAsync(user, model.Email, CancellationToken.None);
